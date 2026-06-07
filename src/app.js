@@ -24,11 +24,4 @@ app.get('/', (req, res) => {
         message: "Selamat datang di Luxe Drive API! Server berjalan dengan aman."
     });
 });
-
-// === KOREKSI: Menambahkan Port Dinamis untuk Render Deployment ===
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server Luxe Drive running on port ${PORT}`);
-});
-
 module.exports = app;
