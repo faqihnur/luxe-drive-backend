@@ -1,6 +1,15 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
 
+// Ensure the MySQL driver is included when bundlers (like Vercel's) build the lambda
+// Sequelize dynamically requires 'mysql2' so explicitly require it here to avoid
+// runtime error: "Please install mysql2 package manually"
+try {
+    require('mysql2');
+} catch (e) {
+    // If mysql2 is not installed, let Sequelize throw the original error later.
+}
+
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
