@@ -1,31 +1,52 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
-require('dotenv').config();
 
-// === SESUAIKAN: Menambahkan PORT dan Opsi SSL untuk Aiven Cloud ===
-const sequelize = new Sequelize(
-    process.env.DB_NAME, 
-    process.env.DB_USER, 
-    process.env.DB_PASSWORD, 
-    {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT || 3306, // Menggunakan port khusus dari .env (misal 15775 di Aiven)
-        dialect: 'mysql',
-        logging: false,
-        dialectOptions: {
-            ssl: {
-                rejectUnauthorized: false // WAJIB AKTIF! Agar diizinkan masuk oleh sistem enkripsi Aiven
-            }
-        }
-    }
-);
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+const DB_PORT = process.env.DB_PORT || 3306;
+const poolMax = isProduction ? parseInt(process.env.DB_POOL_MAX || '2', 10) : parseInt(process.env.DB_POOL_MAX || '5', 10);
+const poolMin = parseInt(process.env.DB_POOL_MIN || '0', 10);
+const poolAcquire = parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10);
+const poolIdle = parseInt(process.env.DB_POOL_IDLE || '10000', 10);
+const useSsl = (process.env.DB_SSL === 'true') || isProduction;
+
+const sequelizeOptions = {
+    host: process.env.DB_HOST,
+    port: DB_PORT,
+    dialect: 'mysql',
+    logging: false,
+    pool: {
+        max: poolMax,
+        min: poolMin,
+        acquire: poolAcquire,
+        idle: poolIdle
+    },
+    dialectOptions: {}
+};
+
+if (useSsl) {
+    // For Aiven MySQL, ensure SSL is used but allow rejectUnauthorized false
+    sequelizeOptions.dialectOptions.ssl = { rejectUnauthorized: false };
+}
+
+// Use a global singleton so cold-starts / hot-reloads don't create many instances
+let sequelize;
+if (global.__sequelize) {
+    sequelize = global.__sequelize;
+} else {
+    sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, sequelizeOptions);
+    global.__sequelize = sequelize;
+}
 
 async function testConnection() {
     try {
         await sequelize.authenticate();
         console.log('✅ Database MySQL berhasil terhubung ke Cloud Aiven!');
     } catch (err) {
-        console.error('❌ Koneksi database gagal:', err.message);
+        console.error('❌ Koneksi database gagal:', err && err.message ? err.message : err);
         throw err;
     }
 }
